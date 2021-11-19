@@ -21,12 +21,63 @@ class LLenhancement:
 
         return 
 
-    def highpassEnhancement(self,highpass_imgs):
-        #iterate through 6 sub bands
-        return
+    def highpassEnhancement(self,highpass_imgs, T=1e-6):
+        """
+        input
+            highpass_imgs - highpass coeffs from dt-cwt
+            T - threshold value for soft thresholding
+        output - highpass coeffs after soft thresholding
+        """
 
-    def whiteBalance(self,v_channel):
-        return
+        for idx in range(highpass_imgs.shape[2]):
+            a = np.absolute(highpass_imgs[:,:,idx]) - T
+            highpass_imgs[:,:,idx] = np.sign(highpass_imgs[:,:,idx])*a*(a>0)
+
+            highpass_imgs[:,:,idx] += highpass_imgs[:,:,idx]*(a<0)
+        return highpass_imgs
+
+    def whiteBalance(self, v_channel, s1=0.1, s2=0.1):
+        """
+        inputs
+            v_channel - v channel of image (assuming values between 0 and 255)
+            s1 - low threshold percentage
+            s2 - high threshold percentage
+        output - white-balanced v channel
+        """
+        # v_channel = v_channel.astype(int)
+        v_channel = np.clip(v_channel, 0, 255)
+        histo = np.zeros(256)
+        rowsize = v_channel.shape[0]
+        colsize = v_channel.shape[1]
+        
+        # compute histogram, add one at each place whenever corresponding value appears
+        for i in range(rowsize):
+            for j in range(colsize):
+                histo[int(v_channel[i,j])]+=1
+        # histogram normalized by number of pixels
+        histo/=(rowsize*colsize)
+
+        # cdf(i) = histo(i)+histo(i-1)+....+histo(1)
+        cdf = np.array([np.sum(histo[:i+1]) for i in range(256)])
+
+        # compute s1th and 1-s2th percentile values
+        vmin = 0
+        while(cdf[vmin + 1] <= s1):
+            vmin+=1
+        vmax = 255-1
+        while(cdf[vmax - 1] >= 1-s2):
+            vmax-=1
+        if (vmax < (255 - 1)):
+            vmax+=1
+
+        # saturate the pixels outside the given range
+        v_channel = (v_channel<=vmin)*vmin + v_channel*(v_channel>vmin)
+        v_channel = (v_channel>=vmax)*vmax + v_channel*(v_channel<vmax)
+
+        # rescale 
+        v_channel = 255.0*(v_channel-vmin)/(vmax-vmin)
+
+        return v_channel
 
     def imgEnhancement(self):
         transform = dtcwt.Transform2d()
@@ -34,7 +85,7 @@ class LLenhancement:
         # (N,N)
         fwd_tfm.lowpass = self.lowpassEnhancement(fwd_tfm.lowpass)
         # (N/2,N/2,6)
-        fwd_tfm.highpasses[0] = self.highpassEnhancement(fwd_tfm.highpasses[0])
+        fwd_tfm.highpasses = (self.highpassEnhancement(fwd_tfm.highpasses[0]),)
         inv_tfm = transform.inverse(fwd_tfm)
         white_balanced = self.whiteBalance(inv_tfm)
 
