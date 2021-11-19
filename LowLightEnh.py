@@ -14,12 +14,43 @@ class LLenhancement:
             raise ValueError("Invalid image path")
 
     def lowpassEnhancement(self,lowpass_img):
+        '''
+        input 
+            low-pass sub-image from dt-cwt
+        output
+            adaptive local tone mapping applied on low-pass sub-image
+        '''
+        Lw = np.array(lowpass_img)
+        h,w = Lw.shape[0],Lw.shape[1]
         #Global adaptation
-
+        logmeanL = np.exp(np.sum(np.log(1e-5 + Lw))/(h*w))
+        Lwmax = np.max(Lw)
+        Lg = np.log((Lw/logmeanL)+1)/(np.log((Lwmax/logmeanL)+1))
 
         #Local adaptation
+        Hg = np.zeros((h,w))
+        kernel_size = 3
+        Lgpad = np.pad(Lg,(kernel_size-1)//2,'constant')
+        a = np.zeros((h,w))
+        b = np.zeros((h,w))
+        
+        #Guided filter, guidance image = input image
+        for i in range(Lgpad.shape[0]-kernel_size):
+            for j in range(Lgpad.shape[1]-kernel_size):
 
-        return 
+                Lwindow = Lgpad[i:i+kernel_size][j:j+kernel_size]
+                sigma = np.mean(np.square(Lwindow)) - np.sqaure(np.mean(Lwindow))
+                a[i][j] = sigma/(sigma + 0.01)
+                b[i][j] = (1-a[i][j])*np.mean(Lwindow)
+
+        for i in range(w):
+            for j in range(h):
+                Hg[i][j] = np.mean(a[max(i-kernel_size//2,0):min(i+1+kernel_size//2,w),max(j-kernel_size//2,0):min(j+1+kernel_size//2,h)])
+
+        alpha = 1+36*(Lg/np.max(Lg))
+        beta = 10*np.exp(np.sum(np.log(1e-5 + Lg))/(h*w))
+        Lout = alpha*np.log((Lg/Hg)+beta)
+        return Lout
 
     def highpassEnhancement(self,highpass_imgs, T=1e-6):
         """
