@@ -3,7 +3,8 @@ import numpy as np
 import os
 import argparse
 import dtcwt
-
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 class LLenhancement:
     def __init__(self,args):
         self.orig_img = cv2.imread(args.img_path)
@@ -21,6 +22,7 @@ class LLenhancement:
             adaptive local tone mapping applied on low-pass sub-image
         '''
         Lw = np.array(lowpass_img)
+        Lw[Lw<0] = 0
         h,w = Lw.shape[0],Lw.shape[1]
         #Global adaptation
         logmeanL = np.exp(np.sum(np.log(1e-5 + Lw))/(h*w))
@@ -38,14 +40,14 @@ class LLenhancement:
         for i in range(Lgpad.shape[0]-kernel_size):
             for j in range(Lgpad.shape[1]-kernel_size):
 
-                Lwindow = Lgpad[i:i+kernel_size][j:j+kernel_size]
+                Lwindow = Lgpad[i:i+kernel_size,j:j+kernel_size]
                 sigma = np.mean(np.square(Lwindow)) - np.square(np.mean(Lwindow))
                 a[i][j] = sigma/(sigma + 0.01)
                 b[i][j] = (1-a[i][j])*np.mean(Lwindow)
 
-        for i in range(w):
-            for j in range(h):
-                Hg[i][j] = np.mean(a[max(i-kernel_size//2,0):min(i+1+kernel_size//2,w),max(j-kernel_size//2,0):min(j+1+kernel_size//2,h)])
+        for i in range(h):
+            for j in range(w):
+                Hg[i][j] = np.mean(a[max(i-kernel_size//2,0):min(i+1+kernel_size//2,h),max(j-kernel_size//2,0):min(j+1+kernel_size//2,w)])
 
         alpha = 1+36*(Lg/np.max(Lg))
         beta = 10*np.exp(np.sum(np.log(1e-5 + Lg))/(h*w))
