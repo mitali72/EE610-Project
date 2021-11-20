@@ -39,7 +39,7 @@ class LLenhancement:
             for j in range(Lgpad.shape[1]-kernel_size):
 
                 Lwindow = Lgpad[i:i+kernel_size][j:j+kernel_size]
-                sigma = np.mean(np.square(Lwindow)) - np.sqaure(np.mean(Lwindow))
+                sigma = np.mean(np.square(Lwindow)) - np.square(np.mean(Lwindow))
                 a[i][j] = sigma/(sigma + 0.01)
                 b[i][j] = (1-a[i][j])*np.mean(Lwindow)
 
