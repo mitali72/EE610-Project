@@ -51,7 +51,7 @@ class LLenhancement:
 
         alpha = 1+36*(Lg/np.max(Lg))
         beta = 10*np.exp(np.sum(np.log(1e-5 + Lg))/(h*w))
-        Lout = alpha*np.log((Lg/Hg)+beta)
+        Lout = alpha*np.log((Lg/(Hg+1e-8))+beta)
         return Lout
 
     def highpassEnhancement(self,highpass_imgs, T=1e-6):
@@ -66,7 +66,7 @@ class LLenhancement:
             a = np.absolute(highpass_imgs[:,:,idx]) - T
             highpass_imgs[:,:,idx] = np.sign(highpass_imgs[:,:,idx])*a*(a>0)
 
-            highpass_imgs[:,:,idx] += highpass_imgs[:,:,idx]*(a<0)
+            # highpass_imgs[:,:,idx] += highpass_imgs[:,:,idx]*(a<0)
         return highpass_imgs
 
     def whiteBalance(self, v_channel, s1=0.1, s2=0.1):
