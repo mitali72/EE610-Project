@@ -1,5 +1,6 @@
 import numpy as np
 import bm3d
+import cv2
 
 def initial_map(img):
     """
@@ -21,9 +22,9 @@ def gamma_correct(imap, gamma=0.8):
     output - 
         asdf - M x N gamma corrected map
     """
-    K = np.power(255, gamma)
-    gamma_imap = np.power(imap, gamma)/K
-    gamma_imap = gamma_imap*255
+    # K = np.power(255, gamma)
+    gamma_imap = np.power(imap, gamma)
+    # gamma_imap = gamma_imap*255
 
     return gamma_imap
 
@@ -42,9 +43,13 @@ def denoise(L, imap):
     L = L/255
     T = T/255
 
-    R = np.divide(L, T)
-    Rd = bm3d.bm3d(R, sigma_psd=30/255, stage_arg=bm3d.BM3DStages.ALL_STAGES)
-
+    R = np.divide(L, T + 1e-5)
+    yuv_img = cv2.cvtColor(R, cv2.COLOR_BGR2YUV).astype(np.float32)
+    yd = bm3d.bm3d(yuv_img[:,:,0], sigma_psd=30/255, stage_arg=bm3d.BM3DStages.ALL_STAGES)
+    Rd = np.array(yuv_img)
+    Rd[:,:,0] = yd
+    Rd = cv2.cvtColor(Rd, cv2.COLOR_YUV2BGR).astype(np.float32)
+    #Recomposing
     Rf = L + np.multiply(Rd, (1-T))
-    Rf= Rf*255
+    # Rf= Rf*255
     return Rf
