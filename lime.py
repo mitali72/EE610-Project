@@ -66,11 +66,12 @@ class LLenhance():
         #Initialising G: gradT, Z: Lagrangian multiplier
         G = np.zeros((2*m,n))
         Z = np.zeros((2*m,n))
-        #Initialising weight matrix using strategy II
+        #discrete gradient operators with forward difference
         Dv = self.fwdDiffToep(m)
         Dh = self.fwdDiffToep(n).T
         delTih,delTiv = gradT(Tinit, Dv, Dh)
-
+        
+        #Initialising weight matrix using strategy II
         Wh = 1/(np.abs(delTih)+1e-4)
         Wv = 1/(np.abs(delTiv)+1e-4)
         W = np.concatenate((Wh,Wv))
@@ -78,10 +79,7 @@ class LLenhance():
         mu = 0.05
         delta = 1e-5
         max_iter = 10000
-        #discrete gradient operators with forward difference
-        Dv = self.fwdDiffToep(m)
-        Dh = self.fwdDiffToep(n).T
-
+        
         while(max_iter):
             #T sub-problem
             x = G - Z/mu
