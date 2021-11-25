@@ -9,6 +9,7 @@ def initial_map(img):
     output - 
         imap - M x N x 3 illumination map
     """
+    #Tˆ(x)← max L(x) over {R,G,B} 
     imap = np.amax(img, axis=2)
     imap = imap + (1e-6)*(imap==0)
     return imap
@@ -22,6 +23,7 @@ def gamma_correct(imap, gamma=0.8):
     output - 
         asdf - M x N gamma corrected map
     """
+    # T <- T^gamma
     gamma_imap = np.power(imap, gamma)
 
     return gamma_imap
@@ -38,7 +40,7 @@ def denoise(L, imap):
     T = np.repeat(imap[:, :, np.newaxis], 3, axis=2)
     R = np.divide(L, T + 1e-5)
 
-    # convert to yuv for denoising
+    # convert rgb to yuv for denoising
     r = R[:,:,2]
     g = R[:,:,1]
     b = R[:,:,0]
@@ -46,10 +48,11 @@ def denoise(L, imap):
     Y = 0.299*r + 0.587*g + 0.114*b
     U = -0.14713*r - 0.28886*g + 0.436*b
     V =0.615*r - 0.51499*g - 0.10001*b
+    #BM3D only on Y channel
     yd = bm3d.bm3d(Y, sigma_psd=30/255, stage_arg=bm3d.BM3DStages.ALL_STAGES)
 
     
-    # convert back to bgr
+    # convert yuv back to bgr
     Rd = np.zeros((R.shape))
     r = yd + 1.13983*V
     g = yd - 0.39465*U - 0.5806*V
@@ -59,7 +62,7 @@ def denoise(L, imap):
     Rd[:,:,1] = g
     Rd[:,:,2] = r
 
-    #Recomposing
+    #Recomposing: Rf <- R◦T + Rd◦(1−T)
     Rf = L + np.multiply(Rd, (1-T))
     Rf= Rf*255
     Rf = np.clip(Rf, 0, 255)
