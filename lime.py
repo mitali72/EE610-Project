@@ -5,9 +5,6 @@ import argparse
 from helper import *
 import time
 
-def gradT(T, Dv, Dh):
-    return np.matmul(T,Dh), np.matmul(Dv,T)
-
 class LLenhance():
 
     def __init__(self,args):
@@ -21,7 +18,7 @@ class LLenhance():
         input -
             m - size of array
         output - 
-            D - discrete derivative operator
+            D - discrete derivative operator (forward difference)
         """
         D = np.zeros((m,m))
         for i in range(m-1):
@@ -31,6 +28,17 @@ class LLenhance():
         D[m-1][0] = 1
         D[m-1][m-1] = -1
         return D
+
+    def gradT(self,T, Dv, Dh):
+        """
+        inputs - 
+            T - illumination map
+            Dv - vertical gradient filter
+            Dh - horizontal gradient filter
+        output -
+            horiozntal gradient of T, vertical gradient of T
+        """
+        return np.matmul(T,Dh), np.matmul(Dv,T)
 
     def Tdenom(self, mu,m,n):
         """
@@ -62,14 +70,19 @@ class LLenhance():
         outputs -
             T - final illumination map
         """
+        #Objective: min||T−T||F +α||W◦∇T||1
         m,n = Tinit.shape[0],Tinit.shape[1]
         #Initialising G: gradT, Z: Lagrangian multiplier
         G = np.zeros((2*m,n))
         Z = np.zeros((2*m,n))
-        #discrete gradient operators with forward difference
+
+        #Discrete gradient operators with forward difference : f'(x) = f(x+1)-f(x) (first order gradient)
+        #Vertical gradient filter
         Dv = self.fwdDiffToep(m)
+        #Horizontal gradient filter
         Dh = self.fwdDiffToep(n).T
-        delTih,delTiv = gradT(Tinit, Dv, Dh)
+        #First order gradient of inital estimate of illumination map
+        delTih,delTiv = self.gradT(Tinit, Dv, Dh)
         
         #Initialising weight matrix using strategy II
         Wh = 1/(np.abs(delTih)+1e-4)
@@ -81,15 +94,16 @@ class LLenhance():
         max_iter = 10000
         
         while(max_iter):
-            #T sub-problem
+            #T sub-problem: T(t+1) <- F^-1(F(2*T^ + muD'(G-Z/mu))/(2+mu*sum(F(Dd)'F(Dd)) over {h,v}))
             x = G - Z/mu
             num = np.fft.fft2(2*Tinit + mu*(np.matmul(x[:m,:],Dh)+np.matmul(Dv,x[m:,:])))
             denom = self.Tdenom(mu,m,n)
             T = np.fft.ifft2(num/denom)
             T = np.real(T)
 
-            #G sub-problem
-            delTh,delTv = gradT(T, Dv, Dh)
+            #G sub-problem: G(t+1) = S_epsilon[x]; x = ∇T(t+1) + Z/mu , epsilon = alpha*W/mu
+            #S_epsilon[x] = sgn(x)max(|x|-epsilon,0)
+            delTh,delTv = self.gradT(T, Dv, Dh)
             delT = np.concatenate((delTh,delTv))
             epsilon = alpha*W/mu
             x = delT +Z/mu
@@ -99,7 +113,7 @@ class LLenhance():
             Z = Z + mu*(delT - G)
             mu = mu*rho
 
-            #check convergence
+            #check convergence: ||∇T(t+1) − G(t+1)||F ≤ δ||Tˆ||F
             if(np.linalg.norm(delT-G,'fro')< delta*np.linalg.norm(Tinit,'fro')):
                 break
             max_iter-=1
@@ -115,13 +129,13 @@ class LLenhance():
         output:
             Rf - Enhanced image
         '''
-        #Estimate initial illumination map
+        #Step1: Estimate initial illumination map (T^(x) <- max(L(x)) over {R,G,B})
         Tinit = initial_map(self.orig_img)
-        #Refine illumination map
+        #Step2: Refine illumination map T based on T^ via exact solver
         T = self.refineT(Tinit,alpha,rho = 2.0)
-        #Gamma correction
+        #Step3: Gamma correction on T via T <- T^gamma
         Tg = gamma_correct(T,gamma)
-        #Denoising and Recomposing
+        #Step4: Denoising R using BM3D (Rd) and Recomposing (Rf)
         Rf = denoise(self.orig_img,Tg)
 
         return Rf
