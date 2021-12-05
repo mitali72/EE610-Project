@@ -4,6 +4,7 @@ import os
 import argparse
 import dtcwt
 import sys
+import time
 np.set_printoptions(threshold=sys.maxsize)
 class LLenhancement:
     def __init__(self,args):
@@ -47,7 +48,7 @@ class LLenhancement:
 
         for i in range(h):
             for j in range(w):
-                Hg[i][j] = np.mean(a[max(i-kernel_size//2,0):min(i+1+kernel_size//2,h),max(j-kernel_size//2,0):min(j+1+kernel_size//2,w)])
+                Hg[i][j] = np.mean(a[max(i-kernel_size//2,0):min(i+1+kernel_size//2,h),max(j-kernel_size//2,0):min(j+1+kernel_size//2,w)])*Lg[i][j] + np.mean(b[max(i-kernel_size//2,0):min(i+1+kernel_size//2,h),max(j-kernel_size//2,0):min(j+1+kernel_size//2,w)])
 
         alpha = 1+36*(Lg/np.max(Lg))
         beta = 10*np.exp(np.sum(np.log(1e-5 + Lg))/(h*w))
@@ -134,8 +135,11 @@ if __name__=="__main__":
     parser.add_argument('--img_path',type = str,default='./img1.png',help='Path to low light image to be enhanced')
     parser.add_argument('--save_img',type = str,default='./enhanced_img1.png',help='Save enhanced image as')
     args = parser.parse_args()
+    start = time.time()
     enhancer = LLenhancement(args)
     enhanced_img = enhancer.imgEnhancement()
+    end = time.time()
+    print("Runtime:", end - start)
     cv2.imwrite(args.save_img, enhanced_img)
 
 
